@@ -1,19 +1,34 @@
+const low = require('lowdb');
+const FileSync = require('lowdb/adapters/FileSync');
+
+const adapter = new FileSync('db.json');
+const db = low(adapter);
+
+db.defaults({
+    messages: {
+        1: [],
+        2: [],
+    },
+}).write();
+
 const io = require('socket.io')(null, {
     cors: {
         origin: '*',
     },
 });
 
-const messages = {
-    1: [],
-    2: [],
-};
+let messages = db.get('messages').value();
+console.log(messages);
+
+setInterval(() => io.sockets.emit('newMessages', messages), 1000);
 
 io.on('connection', (client) => {
     console.log('client connected');
-    client.on('messages', (newMessages) => {
-        messages = newMessages;
-        client.emit('messages', messages);
+    client.on('messages', (message) => {
+        const { roomId, username, content } = message;
+        messages[roomId].push({ username, content });
+        db.set('messages', messages).write();
+        io.sockets.emit('newMessages', messages);
     });
 });
 io.listen(3002);

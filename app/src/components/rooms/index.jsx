@@ -3,12 +3,11 @@ import { Link, useLocation } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import './index.scss';
 
+const socket = io('http://localhost:3002');
+
 export default (props) => {
   const { username } = props;
-  const [messages, setMessages] = useState({
-    1: [],
-    2: [],
-  });
+  const [messages, setMessages] = useState();
   const [newMessage, setNewMessage] = useState('');
   const rooms = [
     {
@@ -23,17 +22,18 @@ export default (props) => {
   const location = useLocation();
   const roomId = location.pathname.split('/')[2] || 1;
 
-  let socket;
-
   const sendMessage = () => {
-    socket.emit('messages', messages[roomId].push({ username, content: newMessage }));
+    const addMessage = { roomId, username, content: newMessage };
+    socket.emit('messages', addMessage);
+    const newMessages = JSON.parse(JSON.stringify(messages));
+    newMessages[roomId].push(addMessage);
+    setMessages(newMessages);
     setNewMessage('');
   };
 
   useEffect(() => {
-    socket = io('http://localhost:3002');
     console.log('listen to messages');
-    socket.on(`messages`, (newMessages) => {
+    socket.on(`newMessages`, (newMessages) => {
       setMessages(newMessages);
       console.log(newMessages);
     });
@@ -60,7 +60,8 @@ export default (props) => {
         <div id="chat-window">
           <div className="room-name">Room {roomId}</div>
           <div className="messages">
-            {messages[roomId] &&
+            {messages &&
+              messages[roomId] &&
               messages[roomId].map((message) => {
                 const { username, content } = message;
                 return (
